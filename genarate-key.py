@@ -73,9 +73,13 @@ def configure_ssh_access(server_ip, port, username, password, key_name=None, pas
         print("Falha na criação da chave, não foi possível prosseguir.")
 
 
-env = input("Deseja usar o arquivo .env para configurar o acesso SSH? (s/n): ")
+use_env = input("Deseja usar o arquivo .env para configurar o acesso SSH? (s/n): ")
 
-if env.lower() == "s":
+if use_env.lower() not in ["s", "n"]:
+    print("Opção inválida. Encerrando o programa.")
+    exit(1)
+
+if use_env.lower() == "s":
     # Exemplo de uso
     server_ip = os.getenv('SERVER_IP')  # IP do servidor remoto
     username = os.getenv("USER")        # Nome de usuário no servidor remoto
