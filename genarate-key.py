@@ -46,7 +46,7 @@ def send_public_key_to_server(server_ip, port, username, password, public_key_pa
         
         # Transferir a chave pública usando SCP
         with SCPClient(ssh.get_transport()) as scp:
-            scp.put(public_key_path, "~/.ssh/temp_key.pub")
+            scp.put(public_key_path, f"/home/{username}/.ssh/temp_key.pub")
 
         # Adicionar a chave ao authorized_keys
         ssh.exec_command("cat ~/.ssh/temp_key.pub >> ~/.ssh/authorized_keys && rm ~/.ssh/temp_key.pub")
