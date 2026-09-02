@@ -1,9 +1,9 @@
 import os
+import shlex
 import subprocess
 
 import paramiko
 from dotenv import load_dotenv
-from scp import SCPClient
 
 load_dotenv(override=True)
 
@@ -59,23 +59,21 @@ def send_public_key_to_server(server_ip, port, username, password, public_key_pa
         ssh.connect(server_ip, port, username=username, password=password, timeout=10)
         print("Conexão estabelecida com sucesso!")
 
-        # Obter o diretório home do usuário
-        stdin, stdout, stderr = ssh.exec_command("echo $HOME")
-        home_dir = stdout.read().decode().strip()
+        with open(public_key_path) as f:
+            pub_key = f.read().strip()
 
-        # Criar o diretório .ssh se não existir
-        stdin, stdout, stderr = ssh.exec_command("mkdir -p ~/.ssh && chmod 700 ~/.ssh")
-        stdout.channel.recv_exit_status()  # Aguarda o comando finalizar
-        
-        # Transferir a chave pública usando SCP
-        remote_path = f"{home_dir}/.ssh/temp_key.pub"
-        with SCPClient(ssh.get_transport()) as scp:
-            scp.put(public_key_path, remote_path)
-        print(f"Chave pública transferida para {remote_path}")
-
-        # Adicionar a chave ao authorized_keys
-        ssh.exec_command("cat ~/.ssh/temp_key.pub >> ~/.ssh/authorized_keys && rm ~/.ssh/temp_key.pub")
-        ssh.exec_command("chmod 600 ~/.ssh/authorized_keys")
+        # Um único comando: cria .ssh, anexa a chave e ajusta permissões.
+        # Precisa aguardar recv_exit_status(), senão ssh.close() mata o comando.
+        command = (
+            "mkdir -p ~/.ssh && chmod 700 ~/.ssh && "
+            f"printf '%s\\n' {shlex.quote(pub_key)} >> ~/.ssh/authorized_keys && "
+            "chmod 600 ~/.ssh/authorized_keys"
+        )
+        _, stdout, stderr = ssh.exec_command(command)
+        exit_status = stdout.channel.recv_exit_status()
+        if exit_status != 0:
+            print(f"Erro ao anexar chave (exit {exit_status}): {stderr.read().decode().strip()}")
+            return
 
         print(f"Chave pública anexada com sucesso ao arquivo authorized_keys no servidor {server_ip}")
     except paramiko.AuthenticationException:
