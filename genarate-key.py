@@ -15,23 +15,21 @@ def create_ssh_key(key_name="id_rsa", key_path=None, passphrase=""):
         os.makedirs(key_path)
 
     private_key = os.path.join(key_path, key_name)
-    
-    # Verificar se a chave já existe
+    public_key = f"{private_key}.pub"
+
+    # Se a chave já existe, perguntar se deve sobrescrever; senão, reutilizar
     if os.path.exists(private_key):
-        overwrite = input(f"A chave {private_key} já existe. Deseja sobrescrever? (s/n): ")
-        if overwrite.lower() != 's':
-            print("Operação cancelada.")
-            return None, None
-        else:
-            # Remover as chaves existentes antes de criar novas
-            try:
-                os.remove(private_key)
-                if os.path.exists(f"{private_key}.pub"):
-                    os.remove(f"{private_key}.pub")
-            except Exception as e:
-                print(f"Erro ao remover chaves existentes: {e}")
-                return None, None
-    
+        overwrite = input(f"{private_key} já existe. Sobrescrever? (s/n): ").strip().lower()
+        if overwrite != "s":
+            if not os.path.exists(public_key):
+                print(f"Chave pública {public_key} não encontrada, não é possível reutilizar.")
+                return None
+            print(f"Reutilizando a chave existente em {private_key}")
+            return private_key, public_key
+        os.remove(private_key)
+        if os.path.exists(public_key):
+            os.remove(public_key)
+
     # Gerar a chave SSH
     command = [
         "ssh-keygen",
@@ -46,9 +44,9 @@ def create_ssh_key(key_name="id_rsa", key_path=None, passphrase=""):
         print(f"Chave SSH criada em {private_key}")
     except subprocess.CalledProcessError as e:
         print(f"Erro ao criar chave SSH: {e}")
-        return None, None
+        return None
 
-    return private_key, f"{private_key}.pub"
+    return private_key, public_key
 
 def send_public_key_to_server(server_ip, port, username, password, public_key_path):
     ssh = paramiko.SSHClient()
@@ -94,17 +92,14 @@ def configure_ssh_access(server_ip, port, username, password, key_name=None, pas
         passphrase = ""
     if key_name is None:
         key_name = input("Informe o nome da chave SSH: ")
-    key_path, pub_key_path = create_ssh_key(key_name=key_name, passphrase=passphrase)
-    
-    if key_path is None:
-        print("Falha na criação da chave, não foi possível prosseguir.")
-        return
-    
-    if pub_key_path:
+    result = create_ssh_key(key_name=key_name, passphrase=passphrase)
+
+    if result:
+        _, pub_key_path = result
         # Passo 2: Enviar a chave pública para o servidor
         send_public_key_to_server(server_ip, port, username, password, pub_key_path)
     else:
-        print("Falha na criação da chave, não foi possível prosseguir.")
+        print("Falha na criação da chave (ou sobrescrita recusada), não foi possível prosseguir.")
 
 
 use_env = input("Deseja usar o arquivo .env para configurar o acesso SSH? (S/n): ")
@@ -116,7 +111,7 @@ if use_env.lower() not in ["s", "n", ""]:
 if use_env.lower() == "s" or use_env.lower() == "":
     # Exemplo de uso
     server_ip = os.getenv('SERVER_IP')  # IP do servidor remoto
-    username = os.getenv("USER")        # Nome de usuário no servidor remoto
+    username = os.getenv("USERNAME")        # Nome de usuário no servidor remoto
     password = os.getenv("PASSWORD")    # Senha do usuário no servidor remoto
     port = os.getenv("PORT")              # Porta SSH do servidor remoto
     if port:
@@ -124,6 +119,7 @@ if use_env.lower() == "s" or use_env.lower() == "":
     else:
         port = 22
     
+    print(f"Usando as configurações do arquivo .env: SERVER_IP={server_ip}, USERNAME={username}, PORT={port}, PASSWORD={password}")
 else:
     server_ip = input("Informe o IP do servidor remoto: ")
     username = input("Informe o nome de usuário no servidor remoto: ")

@@ -19,12 +19,13 @@ Before running the script, ensure you have the following:
    pip install paramiko scp python-dotenv
    ```
 
-3. Create a `.env` file with the following environment variables:
+3. Create a `.env` file with the following environment variables or rename the .env.example to .env:
 
    ```
    SERVER_IP=your_server_ip
-   USER=your_username
+   USERNAME=your_username
    PASSWORD=your_password
+   PORT=your_server_port(default 22)
    ```
 
 ## How to Use
@@ -83,8 +84,9 @@ Antes de executar o script, certifique-se de ter o seguinte:
 
    ```
    SERVER_IP=seu_ip_do_servidor
-   USER=seu_nome_de_usuario
+   USERNAME=seu_nome_de_usuario
    PASSWORD=sua_senha
+   PORT=your_server_port(default 22)
    ```
 
 ## Como Usar
